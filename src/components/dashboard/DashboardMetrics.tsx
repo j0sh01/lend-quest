@@ -61,7 +61,7 @@ export function DashboardMetrics({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'TZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);

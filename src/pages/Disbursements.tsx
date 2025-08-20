@@ -1,113 +1,60 @@
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
+import {
   DollarSign,
-  Calendar,
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Edit,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
-  Download
+  RefreshCw,
+  TrendingUp
 } from 'lucide-react';
+import { LoanService } from '@/services/loanService';
+import { LoanDisbursement, DisbursementsSummaryResponse } from '@/types/loan';
+import { useNavigate } from 'react-router-dom';
+import { PaginationWrapper } from '@/components/common/DataPagination';
+import { toast } from 'sonner';
 
-interface Disbursement {
-  name: string;
-  against_loan: string;
-  loan_name: string;
-  borrower_name: string;
-  disbursement_date: string;
-  disbursed_amount: number;
-  bank_account: string;
-  bank_name: string;
-  reference_number?: string;
-  status: 'Pending' | 'Approved' | 'Disbursed' | 'Failed';
-  mode_of_payment: string;
-  posting_date: string;
-  creation: string;
+// Extended disbursement type that includes additional fields from the API
+interface ExtendedDisbursement extends LoanDisbursement {
+  applicant_name?: string;
+  docstatus?: number;
+  loan_product?: string;
+  applicant_type?: string;
 }
 
-const mockDisbursements: Disbursement[] = [
-  {
-    name: 'DISB-2024-001',
-    against_loan: 'LOAN-2024-001',
-    loan_name: 'LOAN-2024-001',
-    borrower_name: 'John Doe',
-    disbursement_date: '2024-01-20',
-    disbursed_amount: 25000,
-    bank_account: '****1234',
-    bank_name: 'Chase Bank',
-    reference_number: 'TXN123456789',
-    status: 'Disbursed',
-    mode_of_payment: 'Bank Transfer',
-    posting_date: '2024-01-20',
-    creation: '2024-01-20T10:30:00'
-  },
-  {
-    name: 'DISB-2024-002',
-    against_loan: 'LOAN-2024-002',
-    loan_name: 'LOAN-2024-002',
-    borrower_name: 'ABC Corporation',
-    disbursement_date: '2024-01-22',
-    disbursed_amount: 75000,
-    bank_account: '****5678',
-    bank_name: 'Bank of America',
-    status: 'Approved',
-    mode_of_payment: 'Bank Transfer',
-    posting_date: '2024-01-22',
-    creation: '2024-01-21T14:15:00'
-  },
-  {
-    name: 'DISB-2024-003',
-    against_loan: 'LOAN-2024-002',
-    loan_name: 'LOAN-2024-002',
-    borrower_name: 'ABC Corporation',
-    disbursement_date: '2024-01-25',
-    disbursed_amount: 45000,
-    bank_account: '****5678',
-    bank_name: 'Bank of America',
-    status: 'Pending',
-    mode_of_payment: 'Bank Transfer',
-    posting_date: '2024-01-25',
-    creation: '2024-01-24T09:20:00'
-  },
-  {
-    name: 'DISB-2024-004',
-    against_loan: 'LOAN-2024-003',
-    loan_name: 'LOAN-2024-003',
-    borrower_name: 'Sarah Wilson',
-    disbursement_date: '2023-12-15',
-    disbursed_amount: 35000,
-    bank_account: '****9012',
-    bank_name: 'Wells Fargo',
-    reference_number: 'TXN987654321',
-    status: 'Disbursed',
-    mode_of_payment: 'Bank Transfer',
-    posting_date: '2023-12-15',
-    creation: '2023-12-15T11:45:00'
-  }
-];
-
 export default function Disbursements() {
-  const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
+  const [disbursements, setDisbursements] = useState<ExtendedDisbursement[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [summaryData, setSummaryData] = useState<DisbursementsSummaryResponse>({
+    disbursements: [],
+    total_count: 0,
+    pending_count: 0,
+    pending_amount: 0
+  });
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadDisbursements();
@@ -116,49 +63,92 @@ export default function Disbursements() {
   const loadDisbursements = async () => {
     try {
       setLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setDisbursements(mockDisbursements);
+      const data = await LoanService.getDisbursementsSummary() as DisbursementsSummaryResponse;
+      // Ensure data has proper structure
+      const validatedDisbursements = Array.isArray(data.disbursements) ? data.disbursements.map((disbursement: any): ExtendedDisbursement => ({
+        ...disbursement,
+        name: disbursement.name || '',
+        against_loan: disbursement.against_loan || '',
+        applicant_name: disbursement.applicant_name || '',
+        disbursement_date: disbursement.disbursement_date || '',
+        disbursed_amount: disbursement.disbursed_amount || 0,
+        docstatus: disbursement.docstatus || 0,
+        creation: disbursement.creation || new Date().toISOString(),
+        loan_product: disbursement.loan_product || '',
+        applicant_type: disbursement.applicant_type || '',
+        bank_account: disbursement.bank_account || '',
+        reference_number: disbursement.reference_number || '',
+        status: disbursement.status || 'Draft'
+      })) : [];
+
+      setDisbursements(validatedDisbursements);
+      setSummaryData(data);
     } catch (error) {
       console.error('Failed to load disbursements:', error);
-      setDisbursements(mockDisbursements);
+      toast.error('Failed to load disbursements');
     } finally {
       setLoading(false);
     }
   };
 
   const filteredDisbursements = disbursements.filter(disbursement => {
-    const matchesSearch = disbursement.borrower_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         disbursement.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         disbursement.loan_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || disbursement.status === statusFilter;
+    const matchesSearch = disbursement.applicant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         disbursement.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         disbursement.against_loan?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === '' || getStatusFromDocstatus(disbursement.docstatus) === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'Pending': return 'pending';
-      case 'Approved': return 'approved';
-      case 'Disbursed': return 'default';
-      case 'Failed': return 'rejected';
-      default: return 'default';
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDisbursements.length / pageSize);
+  const paginatedDisbursements = filteredDisbursements.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const getStatusFromDocstatus = (docstatus: number) => {
+    switch (docstatus) {
+      case 0: return 'Draft';
+      case 1: return 'Submitted';
+      case 2: return 'Cancelled';
+      default: return 'Draft';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Pending': return Clock;
-      case 'Approved': return CheckCircle;
-      case 'Disbursed': return DollarSign;
-      case 'Failed': return XCircle;
+  const getStatusVariant = (docstatus: number) => {
+    switch (docstatus) {
+      case 1: return 'success' as const;
+      case 0: return 'warning' as const;
+      case 2: return 'destructive' as const;
+      default: return 'secondary' as const;
+    }
+  };
+
+  const getStatusIcon = (docstatus: number) => {
+    switch (docstatus) {
+      case 1: return CheckCircle;
+      case 0: return Clock;
+      case 2: return XCircle;
       default: return AlertCircle;
     }
+  };
+
+  const handleViewDisbursement = (disbursementId: string) => {
+    navigate(`/disbursements/${disbursementId}`);
+  };
+
+  const handleEditDisbursement = (disbursementId: string) => {
+    navigate(`/disbursements/${disbursementId}/edit`);
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'TZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -172,13 +162,43 @@ export default function Disbursements() {
     });
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="space-y-6 p-4 sm:p-0">
+          <div className="flex justify-between items-center">
+            <div>
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <Skeleton className="h-16 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardContent className="p-4">
+              <Skeleton className="h-64 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   const totalDisbursed = disbursements
-    .filter(d => d.status === 'Disbursed')
+    .filter(d => d.docstatus === 1)
     .reduce((sum, d) => sum + d.disbursed_amount, 0);
 
-  const pendingAmount = disbursements
-    .filter(d => d.status === 'Pending' || d.status === 'Approved')
-    .reduce((sum, d) => sum + d.disbursed_amount, 0);
+  const pendingAmount = summaryData.pending_amount;
 
   return (
     <Layout>
@@ -189,57 +209,65 @@ export default function Disbursements() {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Disbursements</h1>
             <p className="text-muted-foreground">Process and track loan disbursements</p>
           </div>
-          <Button variant="financial" className="gap-2 w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
-            New Disbursement
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadDisbursements} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Button
+              variant="financial"
+              className="gap-2 w-full sm:w-auto"
+              onClick={() => navigate('/disbursements/new')}
+            >
+              <Plus className="h-4 w-4" />
+              New Disbursement
+            </Button>
+          </div>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="h-5 w-5 text-financial" />
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Disbursed</p>
-                  <p className="text-lg sm:text-2xl font-bold">{formatCurrency(totalDisbursed)}</p>
+                  <p className="text-sm text-muted-foreground">Total Disbursed</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalDisbursed)}</p>
                 </div>
+                <DollarSign className="h-8 w-8 text-financial" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-warning" />
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Pending</p>
-                  <p className="text-lg sm:text-2xl font-bold">{formatCurrency(pendingAmount)}</p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold text-warning">{formatCurrency(pendingAmount)}</p>
                 </div>
+                <Clock className="h-8 w-8 text-warning" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-success" />
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Completed</p>
-                  <p className="text-lg sm:text-2xl font-bold">{disbursements.filter(d => d.status === 'Disbursed').length}</p>
+                  <p className="text-sm text-muted-foreground">Completed</p>
+                  <p className="text-2xl font-bold text-success">{disbursements.filter(d => d.docstatus === 1).length}</p>
                 </div>
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-primary" />
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">This Month</p>
-                  <p className="text-lg sm:text-2xl font-bold">{disbursements.filter(d => 
-                    new Date(d.creation).getMonth() === new Date().getMonth()
-                  ).length}</p>
+                  <p className="text-sm text-muted-foreground">Total Count</p>
+                  <p className="text-2xl font-bold text-primary">{summaryData.total_count}</p>
                 </div>
+                <TrendingUp className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -247,32 +275,30 @@ export default function Disbursements() {
 
         {/* Filters */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div className="relative flex-1 w-full sm:max-w-sm">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search disbursements..."
-                  className="pl-10"
+                  placeholder="Search disbursements by borrower, loan ID, or disbursement ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="flex gap-2">
                 <select
-                  className="px-3 py-2 border border-input rounded-md bg-background text-sm w-full sm:w-auto"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 >
                   <option value="">All Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Disbursed">Disbursed</option>
-                  <option value="Failed">Failed</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
-                <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="icon">
                   <Filter className="h-4 w-4" />
-                  More Filters
                 </Button>
               </div>
             </div>
@@ -282,89 +308,104 @@ export default function Disbursements() {
         {/* Disbursements Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Disbursements ({filteredDisbursements.length})</span>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </CardTitle>
+            <CardTitle>Disbursements ({filteredDisbursements.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
-                ))}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[140px]">Disbursement ID</TableHead>
-                      <TableHead className="min-w-[140px]">Loan ID</TableHead>
-                      <TableHead className="min-w-[180px]">Borrower</TableHead>
-                      <TableHead className="min-w-[120px]">Amount</TableHead>
-                      <TableHead className="min-w-[180px]">Bank Details</TableHead>
-                      <TableHead className="min-w-[140px]">Reference</TableHead>
-                      <TableHead className="min-w-[100px]">Status</TableHead>
-                      <TableHead className="min-w-[120px]">Date</TableHead>
-                      <TableHead className="min-w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredDisbursements.map((disbursement) => {
-                      const StatusIcon = getStatusIcon(disbursement.status);
-                      return (
-                        <TableRow key={disbursement.name} className="hover:bg-muted/50">
-                          <TableCell className="font-mono text-sm">{disbursement.name}</TableCell>
-                          <TableCell className="font-mono text-sm">{disbursement.loan_name}</TableCell>
-                          <TableCell>
-                            <div className="font-medium">{disbursement.borrower_name}</div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {formatCurrency(disbursement.disbursed_amount)}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{disbursement.bank_name}</div>
-                              <div className="text-sm text-muted-foreground">{disbursement.bank_account}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {disbursement.reference_number ? (
-                              <div className="font-mono text-sm">{disbursement.reference_number}</div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusVariant(disbursement.status)} className="gap-1">
-                              <StatusIcon className="h-3 w-3" />
-                              <span className="hidden sm:inline">{disbursement.status}</span>
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {formatDate(disbursement.disbursement_date)}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[140px]">Disbursement ID</TableHead>
+                    <TableHead className="min-w-[140px]">Loan ID</TableHead>
+                    <TableHead className="min-w-[180px]">Borrower</TableHead>
+                    <TableHead className="min-w-[120px]">Amount</TableHead>
+                    <TableHead className="min-w-[120px]">Product</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="min-w-[120px]">Date</TableHead>
+                    <TableHead className="min-w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedDisbursements.map((disbursement) => {
+                    const StatusIcon = getStatusIcon(disbursement.docstatus);
+                    return (
+                      <TableRow key={disbursement.name} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div className="font-medium font-mono">{disbursement.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDate(disbursement.creation)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium font-mono">{disbursement.against_loan}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{disbursement.applicant_name}</div>
+                          <div className="text-sm text-muted-foreground">{disbursement.applicant_type}</div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(disbursement.disbursed_amount)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{disbursement.loan_product}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(disbursement.docstatus)} className="gap-1">
+                            <StatusIcon className="h-3 w-3" />
+                            {getStatusFromDocstatus(disbursement.docstatus)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {formatDate(disbursement.disbursement_date)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDisbursement(disbursement.name)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditDisbursement(disbursement.name)}
+                              title="Edit Disbursement"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {filteredDisbursements.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No disbursements found matching your criteria
+                </div>
+              )}
+            </div>
           </CardContent>
+
+          {/* Pagination */}
+          {!loading && paginatedDisbursements.length > 0 && (
+            <div className="px-6 pb-6">
+              <PaginationWrapper
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filteredDisbursements.length}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
         </Card>
       </div>
     </Layout>

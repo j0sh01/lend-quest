@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
@@ -6,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, FileText, DollarSign, TrendingUp, Users } from 'lucide-react';
 import { LoanService } from '@/services/loanService';
-import { DashboardMetrics as DashboardMetricsType } from '@/types/loan';
+import { DashboardMetrics as DashboardMetricsType, RecentActivity as RecentActivityType } from '@/types/loan';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetricsType>({
     totalActiveLoans: 0,
     totalDisbursed: 0,
@@ -19,10 +21,13 @@ export default function Dashboard() {
     monthlyDisbursements: [],
     portfolioByStatus: []
   });
+  const [activities, setActivities] = useState<RecentActivityType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
+    loadRecentActivities();
   }, []);
 
   const loadDashboardData = async () => {
@@ -60,33 +65,46 @@ export default function Dashboard() {
     }
   };
 
+  const loadRecentActivities = async () => {
+    try {
+      setActivitiesLoading(true);
+      const activitiesData = await LoanService.getRecentActivities();
+      setActivities(activitiesData);
+    } catch (error) {
+      console.error('Failed to load recent activities:', error);
+      setActivities([]);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
   const quickActions = [
     {
       title: 'New Application',
       description: 'Create a new loan application',
       icon: FileText,
-      href: '/applications/new',
+      action: () => navigate('/applications'),
       variant: 'financial' as const
     },
     {
       title: 'Quick Disbursement',
       description: 'Process loan disbursement',
       icon: DollarSign,
-      href: '/disbursements/new',
+      action: () => navigate('/disbursements'),
       variant: 'success' as const
     },
     {
       title: 'Record Payment',
       description: 'Add loan repayment',
       icon: TrendingUp,
-      href: '/repayments/new',
+      action: () => navigate('/repayments'),
       variant: 'default' as const
     },
     {
       title: 'Add Borrower',
       description: 'Register new borrower',
       icon: Users,
-      href: '/borrowers/new',
+      action: () => navigate('/borrowers'),
       variant: 'secondary' as const
     }
   ];
@@ -148,22 +166,20 @@ export default function Dashboard() {
                   key={action.title}
                   variant={action.variant}
                   className="w-full justify-start gap-3 h-auto p-4"
-                  asChild
+                  onClick={action.action}
                 >
-                  <a href={action.href}>
-                    <action.icon className="h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-medium">{action.title}</div>
-                      <div className="text-sm opacity-80">{action.description}</div>
-                    </div>
-                  </a>
+                  <action.icon className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-medium">{action.title}</div>
+                    <div className="text-sm opacity-80">{action.description}</div>
+                  </div>
                 </Button>
               ))}
             </CardContent>
           </Card>
 
           {/* Recent Activity */}
-          <RecentActivity />
+          <RecentActivity activities={activities} loading={activitiesLoading} />
         </div>
 
         {/* Charts Section */}

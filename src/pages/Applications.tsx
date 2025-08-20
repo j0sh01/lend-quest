@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { LoanApplication } from '@/types/loan';
 import { LoanService } from '@/services/loanService';
+import { LoanApplicationModal } from '@/components/modals/LoanApplicationModal';
+import { PaginationWrapper } from '@/components/common/DataPagination';
 
 const mockApplications: LoanApplication[] = [
   {
@@ -94,6 +96,9 @@ export default function Applications() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showModal, setShowModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
 
   useEffect(() => {
     loadApplications();
@@ -102,8 +107,24 @@ export default function Applications() {
   const loadApplications = async () => {
     try {
       setLoading(true);
-      const data = await LoanService.getLoanApplications();
-      setApplications(data);
+      const response = await LoanService.getLoanApplicationsSummary();
+      const data = response.applications;
+      // Ensure data is an array and has proper structure
+      const validatedData = Array.isArray(data) ? data.map(app => ({
+        ...app,
+        name: app.name || '',
+        applicant: app.applicant || '',
+        applicant_name: app.applicant_name || '',
+        applicant_type: app.applicant_type || 'Employee',
+        loan_product: app.loan_product || '',
+        loan_amount: app.loan_amount || 0,
+        rate_of_interest: app.rate_of_interest || 0,
+        repayment_periods: app.repayment_periods || 0,
+        repayment_schedule_type: app.repayment_schedule_type || 'Monthly',
+        status: app.status || 'Draft',
+        creation: app.creation || new Date().toISOString()
+      })) : [];
+      setApplications(validatedData);
     } catch (error) {
       console.error('Failed to load applications:', error);
       // Use mock data for development
@@ -115,11 +136,23 @@ export default function Applications() {
 
   const filteredApplications = applications.filter(app => {
     const matchesSearch = app.applicant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         app.loan_product.toLowerCase().includes(searchTerm.toLowerCase());
+                         app.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         app.loan_product?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         app.applicant?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || app.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredApplications.length / pageSize);
+  const paginatedApplications = filteredApplications.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -143,7 +176,7 @@ export default function Applications() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'TZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -166,7 +199,7 @@ export default function Applications() {
             <h1 className="text-3xl font-bold text-foreground">Loan Applications</h1>
             <p className="text-muted-foreground">Manage and review loan applications</p>
           </div>
-          <Button variant="financial" className="gap-2">
+          <Button variant="financial" className="gap-2" onClick={() => setShowModal(true)}>
             <Plus className="h-4 w-4" />
             New Application
           </Button>
@@ -237,29 +270,29 @@ export default function Applications() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredApplications.map((application) => {
+                  {paginatedApplications.map((application) => {
                     const StatusIcon = getStatusIcon(application.status);
                     return (
                       <TableRow key={application.name} className="hover:bg-muted/50">
                         <TableCell className="font-mono text-sm">{application.name}</TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{application.applicant_name}</div>
-                            <div className="text-sm text-muted-foreground">{application.applicant_type}</div>
+                            <div className="text-sm text-muted-foreground">{application.applicant_type || 'N/A'}</div>
+                            <div className="text-xs text-muted-foreground font-mono">{application.applicant || 'N/A'}</div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{application.loan_product}</div>
+                            <div className="font-medium">{application.loan_product || 'N/A'}</div>
                             <div className="text-sm text-muted-foreground">
-                              {application.repayment_periods} {application.repayment_schedule_type.toLowerCase()} payments
+                              {application.repayment_periods || 0} {application.repayment_schedule_type?.toLowerCase() || 'monthly'} payments
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(application.loan_amount)}
+                          {formatCurrency(application.loan_amount || 0)}
                         </TableCell>
-                        <TableCell>{application.rate_of_interest}%</TableCell>
+                        <TableCell>{application.rate_of_interest || 0}%</TableCell>
                         <TableCell>
                           <Badge variant={getStatusVariant(application.status)} className="gap-1">
                             <StatusIcon className="h-3 w-3" />
@@ -284,8 +317,30 @@ export default function Applications() {
               </Table>
             )}
           </CardContent>
+
+          {/* Pagination */}
+          {!loading && paginatedApplications.length > 0 && (
+            <div className="px-6 pb-6">
+              <PaginationWrapper
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filteredApplications.length}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
         </Card>
       </div>
+
+      {/* Loan Application Modal */}
+      <LoanApplicationModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onSuccess={() => {
+          loadApplications(); // Reload applications after successful creation
+        }}
+      />
     </Layout>
   );
 }

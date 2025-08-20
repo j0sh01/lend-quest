@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Clock, DollarSign, FileText, User } from 'lucide-react';
+import { RecentActivity as RecentActivityType } from '@/types/loan';
 
 interface ActivityItem {
   id: string;
@@ -14,6 +15,11 @@ interface ActivityItem {
   time: string;
   status: 'pending' | 'completed' | 'approved' | 'rejected';
   userName?: string;
+}
+
+interface RecentActivityProps {
+  activities?: RecentActivityType[];
+  loading?: boolean;
 }
 
 const mockActivities: ActivityItem[] = [
@@ -69,35 +75,60 @@ const mockActivities: ActivityItem[] = [
   }
 ];
 
-function getActivityIcon(type: ActivityItem['type']) {
-  switch (type) {
-    case 'application': return FileText;
-    case 'disbursement': return DollarSign;
-    case 'repayment': return DollarSign;
+function getActivityIcon(type: string) {
+  switch (type.toLowerCase()) {
+    case 'loan application': return FileText;
+    case 'loan disbursement': return DollarSign;
+    case 'loan repayment': return DollarSign;
     case 'approval': return FileText;
     default: return Clock;
   }
 }
 
-function getStatusVariant(status: ActivityItem['status']) {
-  switch (status) {
-    case 'pending': return 'pending';
-    case 'completed': return 'success';
+function getStatusVariant(status: string) {
+  switch (status.toLowerCase()) {
+    case 'draft': return 'secondary';
+    case 'submitted': return 'pending';
     case 'approved': return 'approved';
     case 'rejected': return 'rejected';
+    case 'disbursed': return 'success';
+    case 'sanctioned': return 'approved';
     default: return 'default';
   }
 }
 
-export function RecentActivity() {
+function formatTimeAgo(timestamp: string) {
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffInSeconds = Math.floor((now.getTime() - time.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  return time.toLocaleDateString();
+}
+
+export function RecentActivity({ activities = [], loading = false }: RecentActivityProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'TZS',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Convert backend activities to display format
+  const displayActivities = activities.slice(0, 5).map(activity => ({
+    id: activity.name,
+    type: activity.type.toLowerCase().replace(' ', '') as ActivityItem['type'],
+    title: activity.title,
+    description: activity.description,
+    time: formatTimeAgo(activity.timestamp),
+    status: activity.status.toLowerCase() as ActivityItem['status'],
+    userName: activity.title
+  }));
 
   return (
     <Card className="col-span-1 lg:col-span-2">
@@ -109,10 +140,23 @@ export function RecentActivity() {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {mockActivities.map((activity) => {
-            const IconComponent = getActivityIcon(activity.type);
-            return (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start space-x-4 p-3 rounded-lg animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-muted"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : displayActivities.length > 0 ? (
+          <div className="space-y-4">
+            {displayActivities.map((activity) => {
+              const IconComponent = getActivityIcon(activity.type);
+              return (
               <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -158,7 +202,13 @@ export function RecentActivity() {
               </div>
             );
           })}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No recent activities</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
