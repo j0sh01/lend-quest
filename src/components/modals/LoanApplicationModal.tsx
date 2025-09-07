@@ -15,6 +15,7 @@ interface LoanApplicationModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  editData?: any;
 }
 
 interface LoanApplicationFormData {
@@ -26,9 +27,11 @@ interface LoanApplicationFormData {
   description: string;
   repayment_schedule_type: 'Weekly' | 'Monthly' | 'Quarterly';
   repayment_periods: number;
+  day_of_the_month: number;
   is_secured_loan: boolean;
   repayment_method: string;
   posting_date: string;
+  status: 'Open' | 'Approved' | 'Rejected';
 }
 
 interface LoanProduct {
@@ -46,24 +49,26 @@ interface Applicant {
   employee_name?: string;
 }
 
-export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicationModalProps) {
+export function LoanApplicationModal({ open, onClose, onSuccess, editData }: LoanApplicationModalProps) {
   const [loading, setLoading] = useState(false);
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<LoanProduct | null>(null);
   
   const [formData, setFormData] = useState<LoanApplicationFormData>({
-    applicant_type: 'Employee',
+    applicant_type: 'Borrower',
     applicant: '',
-    company: '',
+    company: 'GT MICROFINANCE LIMITED',
     loan_product: '',
     loan_amount: 0,
     description: '',
     repayment_schedule_type: 'Monthly',
     repayment_periods: 12,
+    day_of_the_month: 1,
     is_secured_loan: false,
     repayment_method: 'Repay Fixed Amount Over Number of Periods',
-    posting_date: new Date().toISOString().split('T')[0]
+    posting_date: new Date().toISOString().split('T')[0],
+    status: 'Open'
   });
 
   const formatCurrency = (amount: number) => {
@@ -81,6 +86,28 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
       loadApplicants();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (editData && open) {
+      setFormData({
+        applicant_type: editData.applicant_type || 'Borrower',
+        applicant: editData.applicant || '',
+        company: editData.company || 'GT MICROFINANCE LIMITED',
+        loan_product: editData.loan_product || '',
+        loan_amount: editData.loan_amount || 0,
+        description: editData.description || '',
+        repayment_schedule_type: editData.repayment_schedule_type || 'Monthly',
+        repayment_periods: editData.repayment_periods || 12,
+        day_of_the_month: editData.day_of_the_month || 1,
+        is_secured_loan: editData.is_secured_loan || false,
+        repayment_method: editData.repayment_method || 'Repay Fixed Amount Over Number of Periods',
+        posting_date: editData.posting_date || new Date().toISOString().split('T')[0],
+        status: editData.status || 'Open'
+      });
+    } else if (open && !editData) {
+      resetForm();
+    }
+  }, [editData, open]);
 
   useEffect(() => {
     if (formData.applicant_type) {
@@ -162,11 +189,21 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
         is_secured_loan: Boolean(formData.is_secured_loan)
       };
 
-      await LoanService.createLoanApplication(applicationData);
-      toast.success('Loan application created successfully');
-      onSuccess?.();
-      onClose();
-      resetForm();
+      let result;
+      if (editData) {
+        result = await LoanService.updateLoanApplication(editData.name, applicationData);
+      } else {
+        result = await LoanService.createLoanApplication(applicationData);
+      }
+
+      if (result.success) {
+        toast.success(result.message || `Loan application ${editData ? 'updated' : 'created'} successfully`);
+        onSuccess?.();
+        onClose();
+        if (!editData) resetForm();
+      } else {
+        toast.error(result.message || `Failed to ${editData ? 'update' : 'create'} loan application`);
+      }
     } catch (error) {
       console.error('Failed to create loan application:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create loan application';
@@ -178,17 +215,19 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
 
   const resetForm = () => {
     setFormData({
-      applicant_type: 'Employee',
+      applicant_type: 'Borrower',
       applicant: '',
-      company: '',
+      company: 'GT MICROFINANCE LIMITED',
       loan_product: '',
       loan_amount: 0,
       description: '',
       repayment_schedule_type: 'Monthly',
       repayment_periods: 12,
+      day_of_the_month: 1,
       is_secured_loan: false,
       repayment_method: 'Repay Fixed Amount Over Number of Periods',
-      posting_date: new Date().toISOString().split('T')[0]
+      posting_date: new Date().toISOString().split('T')[0],
+      status: 'Open'
     });
     setSelectedProduct(null);
   };
@@ -202,7 +241,7 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            New Loan Application
+            {editData ? 'Edit Loan Application' : 'New Loan Application'}
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -358,6 +397,24 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
                 />
               </div>
 
+              {formData.repayment_schedule_type === 'Monthly' && (
+                <div>
+                  <Label htmlFor="day_of_the_month">Day of the Month</Label>
+                  <Input
+                    id="day_of_the_month"
+                    type="number"
+                    value={formData.day_of_the_month}
+                    onChange={(e) => setFormData(prev => ({ ...prev, day_of_the_month: Number(e.target.value) }))}
+                    min="1"
+                    max="31"
+                    placeholder="Day for monthly payments (1-31)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Specify which day of the month payments are due
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="repayment_method">Repayment Method</Label>
                 <Select
@@ -380,17 +437,36 @@ export function LoanApplicationModal({ open, onClose, onSuccess }: LoanApplicati
             </CardContent>
           </Card>
 
-          {/* Security Information */}
+          {/* Security & Status Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Security Information</CardTitle>
+              <CardTitle className="text-lg">Security & Status Information</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="status">Application Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value: 'Open' | 'Approved' | 'Rejected') =>
+                    setFormData(prev => ({ ...prev, status: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="is_secured_loan"
                   checked={formData.is_secured_loan}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setFormData(prev => ({ ...prev, is_secured_loan: checked as boolean }))
                   }
                 />

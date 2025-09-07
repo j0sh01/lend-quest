@@ -33,6 +33,7 @@ import { LoanService } from '@/services/loanService';
 import { LoanRepayment, RepaymentsSummaryResponse } from '@/types/loan';
 import { PaginationWrapper } from '@/components/common/DataPagination';
 import { RepaymentModal } from '@/components/modals/RepaymentModal';
+import { RepaymentViewModal } from '@/components/modals/RepaymentViewModal';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -49,6 +50,8 @@ export default function Repayments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showRepaymentModal, setShowRepaymentModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -139,12 +142,14 @@ export default function Repayments() {
     }
   };
 
-  const handleViewRepayment = (repaymentId: string) => {
-    navigate(`/repayments/${repaymentId}`);
+  const handleViewRepayment = (repayment: any) => {
+    setSelectedRepayment(repayment);
+    setShowViewModal(true);
   };
 
-  const handleEditRepayment = (repaymentId: string) => {
-    navigate(`/repayments/${repaymentId}/edit`);
+  const handleEditRepayment = (repayment: any) => {
+    setSelectedRepayment(repayment);
+    setShowRepaymentModal(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -380,7 +385,7 @@ export default function Repayments() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewRepayment(repayment.name)}
+                              onClick={() => handleViewRepayment(repayment)}
                               title="View Details"
                             >
                               <Eye className="h-4 w-4" />
@@ -388,7 +393,7 @@ export default function Repayments() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditRepayment(repayment.name)}
+                              onClick={() => handleEditRepayment(repayment)}
                               title="Edit Repayment"
                             >
                               <Edit className="h-4 w-4" />
@@ -427,11 +432,24 @@ export default function Repayments() {
       {/* Repayment Modal */}
       <RepaymentModal
         open={showRepaymentModal}
-        onOpenChange={setShowRepaymentModal}
+        onOpenChange={(open) => {
+          setShowRepaymentModal(open);
+          if (!open) setSelectedRepayment(null);
+        }}
         onSuccess={() => {
           loadRepayments();
           setShowRepaymentModal(false);
+          setSelectedRepayment(null);
         }}
+        editData={selectedRepayment}
+      />
+
+      {/* Repayment View Modal */}
+      <RepaymentViewModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        repayment={selectedRepayment}
+        onEdit={handleEditRepayment}
       />
     </Layout>
   );

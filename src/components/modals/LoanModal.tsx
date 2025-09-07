@@ -15,6 +15,7 @@ interface LoanModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  editData?: any;
 }
 
 interface LoanFormData {
@@ -33,7 +34,7 @@ interface LoanFormData {
   repayment_method: string;
 }
 
-export function LoanModal({ open, onOpenChange, onSuccess }: LoanModalProps) {
+export function LoanModal({ open, onOpenChange, onSuccess, editData }: LoanModalProps) {
   const [loading, setLoading] = useState(false);
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
   const [applicants, setApplicants] = useState<any[]>([]);

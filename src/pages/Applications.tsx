@@ -26,6 +26,7 @@ import {
 import { LoanApplication } from '@/types/loan';
 import { LoanService } from '@/services/loanService';
 import { LoanApplicationModal } from '@/components/modals/LoanApplicationModal';
+import { LoanApplicationViewModal } from '@/components/modals/LoanApplicationViewModal';
 import { PaginationWrapper } from '@/components/common/DataPagination';
 
 const mockApplications: LoanApplication[] = [
@@ -97,6 +98,8 @@ export default function Applications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<LoanApplication | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
 
@@ -188,6 +191,16 @@ export default function Applications() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const handleViewApplication = (application: LoanApplication) => {
+    setSelectedApplication(application);
+    setShowViewModal(true);
+  };
+
+  const handleEditApplication = (application: LoanApplication) => {
+    setSelectedApplication(application);
+    setShowModal(true);
   };
 
   return (
@@ -302,10 +315,18 @@ export default function Applications() {
                         <TableCell>{formatDate(application.creation)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewApplication(application)}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditApplication(application)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </div>
@@ -336,10 +357,23 @@ export default function Applications() {
       {/* Loan Application Modal */}
       <LoanApplicationModal
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedApplication(null);
+        }}
         onSuccess={() => {
           loadApplications(); // Reload applications after successful creation
+          setSelectedApplication(null);
         }}
+        editData={selectedApplication}
+      />
+
+      {/* Loan Application View Modal */}
+      <LoanApplicationViewModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        application={selectedApplication}
+        onEdit={handleEditApplication}
       />
     </Layout>
   );

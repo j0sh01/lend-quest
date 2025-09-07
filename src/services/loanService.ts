@@ -393,4 +393,33 @@ export class LoanService {
   static async createRepayment(data: any) {
     return FrappeAPI.create<any>('Loan Repayment', data);
   }
+
+  static async updateBorrower(borrowerId: string, data: any) {
+    return FrappeAPI.update<any>('Borrower', borrowerId, data);
+  }
+
+  static async updateLoanApplication(applicationId: string, data: any) {
+    return FrappeAPI.update<any>('Loan Application', applicationId, data);
+  }
+
+  static async updateLoan(loanId: string, data: any) {
+    return FrappeAPI.update<any>('Loan', loanId, data);
+  }
+
+  static async updateRepayment(repaymentId: string, data: any) {
+    return FrappeAPI.update<any>('Loan Repayment', repaymentId, data);
+  }
+
+  // Print methods
+  static async printLoanRepaymentSchedule(loanId: string) {
+    return FrappeAPI.callMethod('lending.api.print_loan_repayment_schedule', {
+      loan_id: loanId
+    });
+  }
+
+  static async printLoanOfferLetter(loanId: string) {
+    return FrappeAPI.callMethod('lending.api.print_loan_offer_letter', {
+      loan_id: loanId
+    });
+  }
 }

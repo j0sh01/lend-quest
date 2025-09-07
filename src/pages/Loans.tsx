@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoanDetail } from '@/components/details/LoanDetail';
 import { LoanModal } from '@/components/modals/LoanModal';
+import { LoanViewModal } from '@/components/modals/LoanViewModal';
 import { Layout } from '@/components/layout/Layout';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,11 +17,13 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Printer,
   DollarSign,
   Calendar,
   TrendingUp,
@@ -122,6 +126,8 @@ export default function Loans() {
   const [pageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<any>(null);
 
   useEffect(() => {
     loadLoans();
@@ -174,14 +180,80 @@ export default function Loans() {
     }
   };
 
-  const handleViewLoan = (loanId: string) => {
-    // Navigate to loan details page or open modal
-    navigate(`/loans/${loanId}`);
+  const handleViewLoan = (loan: any) => {
+    setSelectedLoan(loan);
+    setShowViewModal(true);
   };
 
-  const handleEditLoan = (loanId: string) => {
-    // Navigate to loan edit page
-    navigate(`/loans/${loanId}/edit`);
+  const handleEditLoan = (loan: any) => {
+    setSelectedLoan(loan);
+    setShowLoanModal(true);
+  };
+
+  const handlePrintRepaymentSchedule = async (loan: any) => {
+    try {
+      const result = await LoanService.printLoanRepaymentSchedule(loan.name) as any;
+      if (result.success) {
+        // Convert base64 to blob and download
+        const byteCharacters = atob(result.pdf_data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast.success('Repayment schedule downloaded successfully');
+      } else {
+        toast.error(result.message || 'Failed to generate repayment schedule');
+      }
+    } catch (error) {
+      console.error('Error printing repayment schedule:', error);
+      toast.error('Failed to generate repayment schedule');
+    }
+  };
+
+  const handlePrintOfferLetter = async (loan: any) => {
+    try {
+      const result = await LoanService.printLoanOfferLetter(loan.name) as any;
+      if (result.success) {
+        // Convert base64 to blob and download
+        const byteCharacters = atob(result.pdf_data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast.success('Offer letter downloaded successfully');
+      } else {
+        toast.error(result.message || 'Failed to generate offer letter');
+      }
+    } catch (error) {
+      console.error('Error printing offer letter:', error);
+      toast.error('Failed to generate offer letter');
+    }
   };
 
   const handleDisburseLoan = (loanId: string) => {
@@ -483,10 +555,18 @@ export default function Loans() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleViewLoan(loan.name)}
+                                onClick={() => handleViewLoan(loan)}
                                 title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditLoan(loan)}
+                                title="Edit Loan"
+                              >
+                                <Edit className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -495,6 +575,22 @@ export default function Loans() {
                                 title="Disburse"
                               >
                                 <DollarSign className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintRepaymentSchedule(loan)}
+                                title="Print Repayment Schedule"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintOfferLetter(loan)}
+                                title="Print Offer Letter"
+                              >
+                                <Printer className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -525,11 +621,24 @@ export default function Loans() {
       {/* Loan Modal */}
       <LoanModal
         open={showLoanModal}
-        onOpenChange={setShowLoanModal}
+        onOpenChange={(open) => {
+          setShowLoanModal(open);
+          if (!open) setSelectedLoan(null);
+        }}
         onSuccess={() => {
           loadLoans();
           setShowLoanModal(false);
+          setSelectedLoan(null);
         }}
+
+      />
+
+      {/* Loan View Modal */}
+      <LoanViewModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        loan={selectedLoan}
+        onEdit={handleEditLoan}
       />
     </Layout>
   );

@@ -34,6 +34,8 @@ import { LoanService } from '@/services/loanService';
 import { BorrowerDetails } from '@/types/loan';
 import { PaginationWrapper } from '@/components/common/DataPagination';
 import { BorrowerModal } from '@/components/modals/BorrowerModal';
+import { BorrowerViewModal } from '@/components/modals/BorrowerViewModal';
+import { BorrowerEditModal } from '@/components/modals/BorrowerEditModal';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -45,6 +47,9 @@ export default function Borrowers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showBorrowerModal, setShowBorrowerModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedBorrower, setSelectedBorrower] = useState<any>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
   const navigate = useNavigate();
@@ -102,12 +107,14 @@ export default function Borrowers() {
     setCurrentPage(page);
   };
 
-  const handleViewBorrower = (borrowerId: string) => {
-    navigate(`/borrowers/${borrowerId}`);
+  const handleViewBorrower = (borrower: any) => {
+    setSelectedBorrower(borrower);
+    setShowViewModal(true);
   };
 
-  const handleEditBorrower = (borrowerId: string) => {
-    navigate(`/borrowers/${borrowerId}/edit`);
+  const handleEditBorrower = (borrower: any) => {
+    setSelectedBorrower(borrower);
+    setShowEditModal(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -352,7 +359,7 @@ export default function Borrowers() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewBorrower(borrower.name)}
+                              onClick={() => handleViewBorrower(borrower)}
                               title="View Details"
                             >
                               <Eye className="h-4 w-4" />
@@ -360,7 +367,7 @@ export default function Borrowers() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditBorrower(borrower.name)}
+                              onClick={() => handleEditBorrower(borrower)}
                               title="Edit Borrower"
                             >
                               <Edit className="h-4 w-4" />
@@ -403,6 +410,29 @@ export default function Borrowers() {
         onSuccess={() => {
           loadBorrowers();
           setShowBorrowerModal(false);
+        }}
+      />
+
+      {/* Borrower View Modal */}
+      <BorrowerViewModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        borrower={selectedBorrower}
+        onEdit={handleEditBorrower}
+      />
+
+      {/* Borrower Edit Modal */}
+      <BorrowerEditModal
+        open={showEditModal}
+        onOpenChange={(open) => {
+          setShowEditModal(open);
+          if (!open) setSelectedBorrower(null);
+        }}
+        borrower={selectedBorrower}
+        onSuccess={() => {
+          loadBorrowers();
+          setShowEditModal(false);
+          setSelectedBorrower(null);
         }}
       />
     </Layout>

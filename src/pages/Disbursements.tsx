@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { LoanService } from '@/services/loanService';
 import { LoanDisbursement, DisbursementsSummaryResponse } from '@/types/loan';
+import { DisbursementViewModal } from '@/components/modals/DisbursementViewModal';
 import { useNavigate } from 'react-router-dom';
 import { PaginationWrapper } from '@/components/common/DataPagination';
 import { toast } from 'sonner';
@@ -48,6 +49,8 @@ export default function Disbursements() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedDisbursement, setSelectedDisbursement] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<DisbursementsSummaryResponse>({
     disbursements: [],
     total_count: 0,
@@ -137,12 +140,15 @@ export default function Disbursements() {
     }
   };
 
-  const handleViewDisbursement = (disbursementId: string) => {
-    navigate(`/disbursements/${disbursementId}`);
+  const handleViewDisbursement = (disbursement: any) => {
+    setSelectedDisbursement(disbursement);
+    setShowViewModal(true);
   };
 
-  const handleEditDisbursement = (disbursementId: string) => {
-    navigate(`/disbursements/${disbursementId}/edit`);
+  const handleEditDisbursement = (disbursement: any) => {
+    // For now, just show view modal - can be extended later
+    setSelectedDisbursement(disbursement);
+    setShowViewModal(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -365,7 +371,7 @@ export default function Disbursements() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewDisbursement(disbursement.name)}
+                              onClick={() => handleViewDisbursement(disbursement)}
                               title="View Details"
                             >
                               <Eye className="h-4 w-4" />
@@ -373,7 +379,7 @@ export default function Disbursements() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditDisbursement(disbursement.name)}
+                              onClick={() => handleEditDisbursement(disbursement)}
                               title="Edit Disbursement"
                             >
                               <Edit className="h-4 w-4" />
@@ -408,6 +414,14 @@ export default function Disbursements() {
           )}
         </Card>
       </div>
+
+      {/* Disbursement View Modal */}
+      <DisbursementViewModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        disbursement={selectedDisbursement}
+        onEdit={handleEditDisbursement}
+      />
     </Layout>
   );
 }

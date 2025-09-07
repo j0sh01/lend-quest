@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,10 @@ import { X, Loader2 } from 'lucide-react';
 import { LoanService } from '@/services/loanService';
 import { toast } from 'sonner';
 
-interface BorrowerModalProps {
+interface BorrowerEditModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  borrower: any;
   onSuccess?: () => void;
 }
 
@@ -34,7 +35,7 @@ interface BorrowerFormData {
   company: string;
 }
 
-export function BorrowerModal({ open, onOpenChange, onSuccess }: BorrowerModalProps) {
+export function BorrowerEditModal({ open, onOpenChange, borrower, onSuccess }: BorrowerEditModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<BorrowerFormData>({
     full_name: '',
@@ -54,6 +55,28 @@ export function BorrowerModal({ open, onOpenChange, onSuccess }: BorrowerModalPr
     company: 'GT MICROFINANCE LIMITED'
   });
 
+  useEffect(() => {
+    if (borrower && open) {
+      setFormData({
+        full_name: borrower.full_name || '',
+        borrower_type: borrower.borrower_type || 'Individual',
+        mobile_number: borrower.mobile_number || '',
+        email_id: borrower.email_id || '',
+        address: borrower.address || '',
+        city: borrower.city || '',
+        state: borrower.state || '',
+        country: borrower.country || 'Tanzania',
+        pincode: borrower.pincode || '',
+        date_of_birth: borrower.date_of_birth || '',
+        gender: borrower.gender || '',
+        marital_status: borrower.marital_status || '',
+        occupation: borrower.occupation || '',
+        annual_income: borrower.annual_income || 0,
+        company: borrower.company || 'GT MICROFINANCE LIMITED'
+      });
+    }
+  }, [borrower, open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -65,38 +88,14 @@ export function BorrowerModal({ open, onOpenChange, onSuccess }: BorrowerModalPr
     try {
       setLoading(true);
       
-      const result = await LoanService.createBorrower(formData);
-
-      if (result.success) {
-        toast.success(result.message || 'Borrower created successfully');
-      } else {
-        toast.error(result.message || 'Failed to create borrower');
-        return;
-      }
+      // Update borrower using Frappe API
+      await LoanService.updateBorrower(borrower.name, formData);
+      toast.success('Borrower updated successfully');
       onSuccess?.();
       onOpenChange(false);
-      
-      // Reset form
-      setFormData({
-        full_name: '',
-        borrower_type: 'Individual',
-        mobile_number: '',
-        email_id: '',
-        address: '',
-        city: '',
-        state: '',
-        country: 'Tanzania',
-        pincode: '',
-        date_of_birth: '',
-        gender: '',
-        marital_status: '',
-        occupation: '',
-        annual_income: 0,
-        company: 'GT MICROFINANCE LIMITED'
-      });
     } catch (error) {
-      console.error('Failed to create borrower:', error);
-      toast.error('Failed to create borrower');
+      console.error('Failed to update borrower:', error);
+      toast.error('Failed to update borrower');
     } finally {
       setLoading(false);
     }
@@ -107,7 +106,7 @@ export function BorrowerModal({ open, onOpenChange, onSuccess }: BorrowerModalPr
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            Create New Borrower
+            Edit Borrower - {borrower?.full_name}
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -289,7 +288,7 @@ export function BorrowerModal({ open, onOpenChange, onSuccess }: BorrowerModalPr
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Borrower
+              Update Borrower
             </Button>
           </div>
         </form>
